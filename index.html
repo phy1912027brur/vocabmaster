@@ -92,9 +92,16 @@
         const updateAuthUI = () => {
             const btn = document.getElementById('auth-btn');
             const adminBtn = document.getElementById('admin-toggle');
+            
+            // Check if user exists and is not anonymous (Admin is signed in)
             if (user && !user.isAnonymous) {
                 btn.innerHTML = `<i data-lucide="log-out" class="w-4 h-4 mr-2"></i> Logout`;
-                if (user.uid === ADMIN_UID) adminBtn.classList.remove('hidden');
+                // Show settings button only for the specific admin UID
+                if (user.uid === ADMIN_UID) {
+                    adminBtn.classList.remove('hidden');
+                } else {
+                    adminBtn.classList.add('hidden');
+                }
             } else {
                 btn.innerHTML = `<i data-lucide="user" class="w-4 h-4 mr-2"></i> Login`;
                 adminBtn.classList.add('hidden');
@@ -265,8 +272,12 @@
         
         window.toggleAuth = async () => {
             if (user && !user.isAnonymous) {
-                await signOut(auth);
-                location.reload();
+                try {
+                    await signOut(auth);
+                    // This will trigger onAuthStateChanged and sign in anonymously automatically
+                } catch (err) {
+                    console.error("Sign out error", err);
+                }
             } else {
                 document.getElementById('auth-modal').classList.remove('hidden');
                 document.getElementById('auth-modal').classList.add('flex');
@@ -277,11 +288,20 @@
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
+            const loginBtn = e.target.querySelector('button');
+            
+            loginBtn.innerText = "Signing in...";
+            loginBtn.disabled = true;
+
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
                 document.getElementById('auth-modal').classList.add('hidden');
+                // State update happens in onAuthStateChanged
             } catch (err) {
                 alert("Login failed: " + err.message);
+            } finally {
+                loginBtn.innerText = "Sign In";
+                loginBtn.disabled = false;
             }
         };
 
@@ -388,7 +408,7 @@
             <form onsubmit="handleLogin(event)" class="space-y-4">
                 <input id="login-email" type="email" required placeholder="Email" class="w-full p-4 bg-slate-50 rounded-2xl text-sm border-0 ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500 outline-none">
                 <input id="login-pass" type="password" required placeholder="Password" class="w-full p-4 bg-slate-50 rounded-2xl text-sm border-0 ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button type="submit" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100">Sign In</button>
+                <button type="submit" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-50">Sign In</button>
             </form>
         </div>
     </div>
