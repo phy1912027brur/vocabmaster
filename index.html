@@ -14,7 +14,9 @@
             onAuthStateChanged, 
             signInAnonymously,
             signInWithEmailAndPassword,
-            signOut
+            signOut,
+            setPersistence,
+            browserLocalPersistence
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { 
             getFirestore, 
@@ -55,6 +57,13 @@
         };
 
         const init = async () => {
+            // Set persistence to local to handle network hiccups better
+            try {
+                await setPersistence(auth, browserLocalPersistence);
+            } catch (e) {
+                console.warn("Persistence error", e);
+            }
+
             onAuthStateChanged(auth, async (u) => {
                 user = u;
                 if (!u) {
@@ -93,10 +102,8 @@
             const btn = document.getElementById('auth-btn');
             const adminBtn = document.getElementById('admin-toggle');
             
-            // Check if user exists and is not anonymous (Admin is signed in)
             if (user && !user.isAnonymous) {
                 btn.innerHTML = `<i data-lucide="log-out" class="w-4 h-4 mr-2"></i> Logout`;
-                // Show settings button only for the specific admin UID
                 if (user.uid === ADMIN_UID) {
                     adminBtn.classList.remove('hidden');
                 } else {
@@ -142,7 +149,6 @@
             refreshIcons();
         };
 
-        // --- Admin Functions ---
         window.toggleAdmin = () => {
             isAdminView = !isAdminView;
             const mainView = document.getElementById('main-view');
@@ -236,7 +242,6 @@
             }
         };
 
-        // --- Word Details ---
         window.showWordDetails = (id) => {
             const word = words.find(w => w.id === id);
             const modal = document.getElementById('details-modal');
@@ -274,7 +279,6 @@
             if (user && !user.isAnonymous) {
                 try {
                     await signOut(auth);
-                    // This will trigger onAuthStateChanged and sign in anonymously automatically
                 } catch (err) {
                     console.error("Sign out error", err);
                 }
@@ -296,9 +300,13 @@
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
                 document.getElementById('auth-modal').classList.add('hidden');
-                // State update happens in onAuthStateChanged
             } catch (err) {
-                alert("Login failed: " + err.message);
+                console.error("Detailed Login Error:", err);
+                if (err.code === 'auth/network-request-failed') {
+                    alert("Network Error! Please check your internet connection and try again.");
+                } else {
+                    alert("Login failed: " + err.message);
+                }
             } finally {
                 loginBtn.innerText = "Sign In";
                 loginBtn.disabled = false;
@@ -315,7 +323,6 @@
 </head>
 <body class="p-6">
     <div class="max-w-xl mx-auto">
-        <!-- Header -->
         <header class="flex justify-between items-center mb-8">
             <div class="flex items-center gap-2">
                 <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
@@ -336,7 +343,6 @@
             </div>
         </header>
 
-        <!-- Main Student View -->
         <div id="main-view">
             <div class="mb-2">
                 <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Categories</span>
@@ -347,9 +353,7 @@
             </div>
         </div>
 
-        <!-- Admin View -->
         <div id="admin-view" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <!-- Add New Word Form -->
             <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm mb-6">
                 <h2 class="text-sm font-black mb-4 uppercase tracking-widest text-blue-600">Add New Word</h2>
                 <form onsubmit="addWord(event)" class="space-y-3">
@@ -366,7 +370,6 @@
                 </form>
             </div>
 
-            <!-- Admin Table & Search -->
             <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                 <div class="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                     <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Records</span>
@@ -392,7 +395,6 @@
         </div>
     </div>
 
-    <!-- Details Modal -->
     <div id="details-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 p-4 items-center justify-center">
         <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 relative shadow-2xl animate-in zoom-in-95 duration-200">
             <button onclick="closeDetails()" class="absolute top-6 right-6 p-2 bg-slate-50 rounded-full text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -400,7 +402,6 @@
         </div>
     </div>
 
-    <!-- Auth Modal -->
     <div id="auth-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] p-4 items-center justify-center">
         <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-8 relative shadow-2xl">
             <button onclick="this.closest('#auth-modal').classList.add('hidden')" class="absolute top-6 right-6 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
